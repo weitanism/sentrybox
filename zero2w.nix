@@ -57,9 +57,14 @@
     };
   };
 
+  systemd.network.enable = true;
+  systemd.network.networks."10-wlan0" = {
+    matchConfig.Name = "wlan0";
+    networkConfig.DHCP = "ipv4";
+  };
   networking = {
     hostName = hostname;
-    interfaces."wlan0".useDHCP = true;
+    useDHCP = false;
     wireless = {
       enable = true;
       interfaces = [ "wlan0" ];
