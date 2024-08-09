@@ -49,6 +49,8 @@
     kernelPackages = pkgs.linuxPackages_latest;
 
     initrd.availableKernelModules = [ "xhci_pci" "usbhid" "usb_storage" ];
+
+    loader.timeout = 1;
   };
 
   fileSystems = {
