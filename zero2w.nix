@@ -8,6 +8,13 @@
 {
   imports = [
     ./sd-image.nix
+
+    (import ./mass-storage-gadget-service.nix {
+      inherit pkgs;
+      sizeGb = 64;
+      path = "/mass-storage.bin";
+      mountPath = "/mnt/mass-storage";
+    })
   ];
 
   nixpkgs.hostPlatform.system = "aarch64-linux";
@@ -96,4 +103,10 @@
     enable = true;
     wheelNeedsPassword = false;
   };
+
+  environment.systemPackages = with pkgs; [
+    inotify-tools
+    python3
+    mass-storage-gadget
+  ];
 }

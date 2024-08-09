@@ -1,0 +1,9 @@
+{ pkgs }:
+
+{
+  mass-storage-gadget =
+    pkgs.writers.writePython3Bin
+      "mass-storage-gadget"
+      { libraries = [ ]; }
+      ../mass_storage_gadget.py;
+}
