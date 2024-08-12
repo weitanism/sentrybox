@@ -36,21 +36,26 @@
       devShell.x86_64-linux =
         let
           pkgs = nixpkgs.legacyPackages.x86_64-linux;
-          python-with-packages = pkgs.python3.withPackages (p: with p; [
-            # devtools
-            black
-            isort
-            epc
-          ]);
         in
         pkgs.mkShell {
-          nativeBuildInputs = [
-            pkgs.nodePackages.pyright
-            python-with-packages
+          packages = with pkgs; [
+            # C++
+            cmake
+            clang
+            clang-tools
+            abseil-cpp
+            argparse
+
+            # Python
+            nodePackages.pyright
+            (python3.withPackages
+              (p: with p; [
+                # devtools
+                black
+                isort
+                epc
+              ]))
           ];
-          shellHook = ''
-            export PYTHONPATH=${python-with-packages}/${python-with-packages.sitePackages}
-          '';
         };
     };
 }
