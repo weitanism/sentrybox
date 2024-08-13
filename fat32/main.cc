@@ -12,11 +12,14 @@ int main(int argc, char** argv) {
   program.add_argument("-p", "--path")
       .help("path to perform action on")
       .default_value(std::string{""});
+  program.add_argument("-e", "--export-path")
+      .help("path to save exported file")
+      .default_value(std::string{""});
 
   program.add_argument("action")
       .help("supported actions: ls, cat")
       .default_value(std::string{"ls"})
-      .choices("ls", "cat");
+      .choices("ls", "cat", "export");
 
   try {
     program.parse_args(argc, argv);
@@ -28,9 +31,11 @@ int main(int argc, char** argv) {
   std::string file = program.get("file");
   std::string action = program.get("action");
   std::string path = program.get("path");
+  std::string export_path = program.get("export-path");
   std::cout << "file: " << file << std::endl;
   std::cout << "action: " << action << std::endl;
   std::cout << "path: " << path << std::endl;
+  std::cout << "export path: " << export_path << std::endl;
 
   auto fs = fat32::FileSystem(file);
   if (!fs.IsValid()) {
@@ -47,7 +52,9 @@ int main(int argc, char** argv) {
       std::cout << f.name << (f.IsDirectory() ? "/" : "") << std::endl;
     }
   } else if (action == "cat") {
-    fs.ReadFile(path);
+    fs.ReadFile(path, "");
+  } else if (action == "export") {
+    fs.ReadFile(path, export_path);
   } else {
     std::cerr << "action '" << action << "' not implemented yet" << std::endl;
   }

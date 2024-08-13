@@ -27,7 +27,7 @@ class FileSystem {
     return current_dir_entries_;
   };
 
-  std::string ReadFile(absl::string_view path);
+  std::string ReadFile(absl::string_view path, const std::string& export_path);
 
   DirectoryEntry GetPathInfo(absl::string_view path);
 

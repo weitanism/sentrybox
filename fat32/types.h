@@ -109,7 +109,7 @@ struct DirectoryEntry {
   u_int16_t lastModificationTime;
   u_int16_t lastModificationDate;
   u_int16_t firstClusterLow;
-  u_int32_t size;
+  u_int32_t size;  // size in bytes of file/directory described by this entry
 
   // processed fields
   std::string name;

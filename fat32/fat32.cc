@@ -236,29 +236,45 @@ int GetClusterAddress(const BiosParameterBlock &bpb,
 
 void ReadFile(const BiosParameterBlock &bpb,
               const ExtendedBiosParameterBlock &ebpb,
-              const DirectoryEntry &entry, std::ifstream &in) {
+              const DirectoryEntry &entry, std::ifstream &in,
+              std::ofstream *out_stream) {
   PrintTitle("File Info");
   PrintDirectoryEntryInfo(entry);
   const int first_cluster =
       ComposeCluster(entry.firstClusterHigh, entry.firstClusterLow);
-  const int bytes_per_cluster = bpb.sectorsPerCluster * bpb.bytesPerSector;
+  const u_int32_t bytes_per_cluster =
+      bpb.sectorsPerCluster * bpb.bytesPerSector;
 
   int current_cluster = first_cluster;
+  u_int32_t bytes_to_read = entry.size;
 
   PrintTitle("File Content");
   while (true) {
     in.seekg(GetClusterAddress(bpb, ebpb, current_cluster));
-    std::string data(bytes_per_cluster + 1, '\0');
-    in.read(data.data(), bytes_per_cluster);
-    std::cout << data;
+    const int size = std::min(bytes_to_read, bytes_per_cluster);
+    if (out_stream != nullptr) {
+      std::vector<char> buffer(size);
+      in.read(buffer.data(), size);
+      out_stream->write(buffer.data(), size);
+    } else {
+      std::string data(size + 1, '\0');
+      in.read(data.data(), size);
+      std::cout << data;
+    }
+    bytes_to_read -= size;
     // assert(in.is_open());
+
+    if (bytes_to_read == 0) {
+      std::cout << std::endl << "[EOF] read all data" << std::endl;
+      break;
+    }
 
     int next_cluster = GetNextCluster(in, bpb, current_cluster);
     if (next_cluster >= EOCC) {
-      std::cout << std::endl << "end of file" << std::endl;
+      std::cout << std::endl << "[EOF] end of cluster" << std::endl;
       break;
     } else if (next_cluster == BAD_CLUSTER) {
-      std::cerr << "bad cluster - stopping" << std::endl;
+      std::cerr << "[EOF] bad cluster - stopping" << std::endl;
       break;
     }
     current_cluster = next_cluster;
@@ -575,7 +591,8 @@ FileSystem::FileSystem(const std::string &image_file) {
   PrintTitle("FileSystem Initialized");
 }
 
-std::string FileSystem::ReadFile(absl::string_view path) {
+std::string FileSystem::ReadFile(absl::string_view path,
+                                 const std::string &export_path) {
   const char kPathDelimeter = '/';
   std::size_t pos = path.find_last_of(kPathDelimeter);
   absl::string_view filename;
@@ -592,12 +609,17 @@ std::string FileSystem::ReadFile(absl::string_view path) {
   }
   auto dir_entry =
       std::find_if(current_dir_entries_.cbegin(), current_dir_entries_.cend(),
-                   [&filename](auto entry) {return entry.name == filename; });
+                   [&filename](auto entry) { return entry.name == filename; });
   if (dir_entry == current_dir_entries_.cend() || dir_entry->IsDirectory()) {
     std::cerr << "file not exists or is a directory" << std::endl;
     return "";
   }
-  fat32::ReadFile(bpb_, ebpb_, *dir_entry, in_);
+  if (export_path.empty()) {
+    fat32::ReadFile(bpb_, ebpb_, *dir_entry, in_, nullptr);
+  } else {
+    std::ofstream os(export_path, std::ios::binary);
+    fat32::ReadFile(bpb_, ebpb_, *dir_entry, in_, &os);
+  }
   return "";
 };
 
