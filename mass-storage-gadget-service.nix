@@ -25,6 +25,7 @@
       path = with pkgs; [
         util-linux
         kmod
+        dosfstools
       ];
     };
 }

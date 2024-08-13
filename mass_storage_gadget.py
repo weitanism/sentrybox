@@ -21,8 +21,26 @@ def initialize_backing_file(path: Path, size_gb: int):
         return
 
     path.parent.mkdir(parents=True, exist_ok=True)
-    run_shell_command(["fallocate", "-l", f"{size_gb}GiB", str(path)])
-    run_shell_command(["mkfs.vfat", "-F", "32", "-I", str(path)])
+    try:
+        run_shell_command(["fallocate", "-l", f"{size_gb}GiB", str(path)])
+        run_shell_command(["mkfs.vfat", "-F", "32", "-I", str(path)])
+    except Exception:
+        run_shell_command(["rm", "-f", str(path)])
+        raise
+
+    # Initialize the directory structure. See
+    # https://www.tesla.com/ownersmanual/model3/en_us/GUID-F311BBCA-2532-4D04-B88C-DBA784ADEE21.html
+    mount_path = Path("/root/mass_storage_mnt")
+    mount(path, mount_path, readwrite=True)
+    try:
+        for directory in ("TeslaCam", "TeslaTrackMode"):
+            run_shell_command(["mkdir", "-p", str(mount_path / directory)])
+    except Exception:
+        unmount(mount_path)
+        run_shell_command(["rm", "-f", str(path)])
+        raise
+    else:
+        unmount(mount_path)
 
 
 def enable_gadget(backing_file: Path, size_gb: int):
