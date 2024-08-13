@@ -108,5 +108,6 @@
     inotify-tools
     python3
     mass-storage-gadget
+    fat32
   ];
 }

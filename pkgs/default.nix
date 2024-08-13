@@ -6,4 +6,6 @@
       "mass-storage-gadget"
       { libraries = [ ]; }
       ../mass_storage_gadget.py;
+
+  fat32 = (pkgs.callPackage ../fat32 {});
 }

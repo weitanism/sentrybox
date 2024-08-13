@@ -41,7 +41,7 @@
           packages = with pkgs; [
             # C++
             cmake
-            clang
+            llvmPackages_12.clang
             clang-tools
             abseil-cpp
             argparse

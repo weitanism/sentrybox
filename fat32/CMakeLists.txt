@@ -17,3 +17,4 @@ add_executable(fat32 fat32.cc main.cc)
 target_link_libraries(fat32 PRIVATE argparse::argparse absl::strings)
 target_compile_options(fat32 PRIVATE -Wall -Wextra -Wpedantic -Werror)
 
+install(TARGETS fat32 DESTINATION bin)
