@@ -7,21 +7,21 @@
 namespace fat32 {
 
 struct Time {
-  u_int8_t hour;
-  u_int8_t minutes;
-  u_int8_t seconds;
+  uint8_t hour;
+  uint8_t minutes;
+  uint8_t seconds;
 };
 
 struct Date {
-  u_int8_t year;
-  u_int8_t month;
-  u_int8_t day;
+  uint8_t year;
+  uint8_t month;
+  uint8_t day;
 };
 
 struct Datetime : Date {
-  u_int8_t hour;
-  u_int8_t minutes;
-  u_int8_t seconds;
+  uint8_t hour;
+  uint8_t minutes;
+  uint8_t seconds;
 
   time_t ToTimestamp() const {
     struct tm tm;
@@ -37,7 +37,7 @@ struct Datetime : Date {
 
 namespace {
 
-Date ConvertToDate(u_int16_t date) {
+Date ConvertToDate(uint16_t date) {
   Date result;
   result.day = date & 0b11111;
   date >>= 5;
@@ -48,7 +48,7 @@ Date ConvertToDate(u_int16_t date) {
   return result;
 }
 
-Datetime ConvertToDatetime(u_int16_t date, u_int16_t time) {
+Datetime ConvertToDatetime(uint16_t date, uint16_t time) {
   Datetime result;
   result.day = date & 0b11111;
   date >>= 5;
@@ -70,56 +70,56 @@ Datetime ConvertToDatetime(u_int16_t date, u_int16_t time) {
 struct BiosParameterBlock {
   unsigned char jmp[3];
   char oem[9];
-  u_int16_t bytesPerSector;    // 512, 1024, 2048 or 4096.
-  u_int8_t sectorsPerCluster;  // 1, 2, 4, 8, 16, 32, 64, or 128
-  u_int16_t reservedSectors;   // not be 0 and can be any non-zero value.
-  u_int8_t countFats;
-  u_int16_t rootDirectoryEntries16;  // FAT12/16 only
-  u_int16_t sectorsCount16;          // FAT12/16 only
-  u_int8_t mediaDescriptorType;  // 0xF8 for “fixed” media, 0xF0 for removable.
-  u_int16_t sectorsPerFAT16;     // FAT12/16 only
-  u_int16_t sectorsPerTrack;
-  u_int16_t headsCount;
-  u_int32_t hiddenSectors;
-  u_int32_t sectorsCount32;
+  uint16_t bytesPerSector;    // 512, 1024, 2048 or 4096.
+  uint8_t sectorsPerCluster;  // 1, 2, 4, 8, 16, 32, 64, or 128
+  uint16_t reservedSectors;   // not be 0 and can be any non-zero value.
+  uint8_t countFats;
+  uint16_t rootDirectoryEntries16;  // FAT12/16 only
+  uint16_t sectorsCount16;          // FAT12/16 only
+  uint8_t mediaDescriptorType;  // 0xF8 for “fixed” media, 0xF0 for removable.
+  uint16_t sectorsPerFAT16;     // FAT12/16 only
+  uint16_t sectorsPerTrack;
+  uint16_t headsCount;
+  uint32_t hiddenSectors;
+  uint32_t sectorsCount32;
 };
 
 struct ExtendedBiosParameterBlock {
-  u_int32_t sectorsPerFAT;
-  u_int16_t flags;
-  u_int16_t FATVersion;
-  u_int32_t rootDirCluster;
-  u_int16_t FSInfoSector;
-  u_int16_t backupBootSector;
-  u_int8_t driveNumber;
-  u_int8_t signature;
-  u_int32_t volumeId;
+  uint32_t sectorsPerFAT;
+  uint16_t flags;
+  uint16_t FATVersion;
+  uint32_t rootDirCluster;
+  uint16_t FSInfoSector;
+  uint16_t backupBootSector;
+  uint8_t driveNumber;
+  uint8_t signature;
+  uint32_t volumeId;
   char volumeLabel[12];
   char systemType[9];
 };
 
 struct FileSystemInformation {
-  u_int32_t leadSignature;
-  u_int32_t structSignature;
-  u_int32_t freeClusters;
-  u_int32_t availableClusterStart;
-  u_int32_t trailSignature;
+  uint32_t leadSignature;
+  uint32_t structSignature;
+  uint32_t freeClusters;
+  uint32_t availableClusterStart;
+  uint32_t trailSignature;
 };
 
 struct DirectoryEntry {
   // raw fields on disk
   char filename[12];
   std::string longFilename;
-  u_int8_t attributes;
-  u_int8_t creationTimeHS;
-  u_int16_t creationTime;
-  u_int16_t creationDate;
-  u_int16_t lastAccessedDate;
-  u_int16_t firstClusterHigh;
-  u_int16_t lastModificationTime;
-  u_int16_t lastModificationDate;
-  u_int16_t firstClusterLow;
-  u_int32_t size;  // size in bytes of file/directory described by this entry
+  uint8_t attributes;
+  uint8_t creationTimeHS;
+  uint16_t creationTime;
+  uint16_t creationDate;
+  uint16_t lastAccessedDate;
+  uint16_t firstClusterHigh;
+  uint16_t lastModificationTime;
+  uint16_t lastModificationDate;
+  uint16_t firstClusterLow;
+  uint32_t size;  // size in bytes of file/directory described by this entry
 
   // processed fields
   std::string name;
@@ -140,10 +140,10 @@ struct DirectoryEntry {
 };
 
 struct LongFileNameDirectoryEntry {
-  u_int8_t order;
+  uint8_t order;
   char topName[10];
-  u_int8_t longEntryType;
-  u_int8_t checksum;
+  uint8_t longEntryType;
+  uint8_t checksum;
   char middleName[12];
   char bottomName[4];
 };

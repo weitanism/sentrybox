@@ -41,8 +41,8 @@ class FileSystem {
 
   bool ReadFile(absl::string_view path, char* out);
 
-  size_t ReadFile(const DirectoryEntry& entry, size_t offset, size_t size,
-                  char* out);
+  uint32_t ReadFile(const DirectoryEntry& entry, uint32_t offset, uint32_t size,
+                    char* out);
 
   DirectoryEntry GetPathInfo(absl::string_view path);
 
