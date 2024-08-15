@@ -1,5 +1,6 @@
 #include "fat32_fuse.h"
 
+#include <chrono>
 #include <string>
 
 #include "spdlog/spdlog.h"
@@ -12,6 +13,22 @@ namespace fat32 {
 namespace fuse {
 
 static FileSystem *fs = nullptr;
+static double last_fs_refresh_time = 0.0;
+constexpr double kMinFsRefreshInterval = 5.0;
+
+bool RefreshFs() {
+  const double now = std::chrono::duration_cast<std::chrono::seconds>(
+                         std::chrono::steady_clock::now().time_since_epoch())
+                         .count();
+
+  if (now - last_fs_refresh_time < kMinFsRefreshInterval) {
+    return true;
+  }
+
+  spdlog::debug("refresh fs");
+  last_fs_refresh_time = now;
+  return fs->Refresh();
+}
 
 static int getattr(const char *path, struct stat *stbuf,
                    struct fuse_file_info * /*fi*/) {
@@ -24,7 +41,7 @@ static int getattr(const char *path, struct stat *stbuf,
   } else {
     std::string filename(path + 1);  // +1 to skip the leading '/'.
 
-    if (!fs->Refresh()) {
+    if (!RefreshFs()) {
       return -EAGAIN;
     }
     fs->ChangeDirectory(filename, true);
@@ -66,8 +83,7 @@ static int readdir(const char *path, void *buf, fuse_fill_dir_t filler,
   }
 
   std::string path_str(path + 1);  // +1 to skip the leading '/'.
-  // TODO: Limit refresh rate.
-  if (!fs->Refresh()) {
+  if (!RefreshFs()) {
     return -EAGAIN;
   }
   fs->ChangeDirectory(path_str);
@@ -90,7 +106,7 @@ int read(const char *path, char *buf, size_t size, off_t offset,
   spdlog::debug("read: {}", path);
 
   std::string path_str(path + 1);
-  if (!fs->Refresh()) {
+  if (!RefreshFs()) {
     return -EAGAIN;
   }
   fs->ChangeDirectory(path_str, true);
