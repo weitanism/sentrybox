@@ -3,162 +3,112 @@
 #include <algorithm>
 #include <cmath>
 #include <fstream>
-#include <iomanip>
-#include <iostream>
 #include <string>
 #include <vector>
 
 #include "absl/strings/str_split.h"
 #include "absl/strings/strip.h"
+#include "spdlog/spdlog.h"
 
 namespace fat32 {
 
 namespace {
 
 // End Of Cluster Chain value
-const int EOCC = 0x0FFFFFF8;
+constexpr int kEocc = 0x0FFFFFF8;
 // Bad Cluster value
-const int BAD_CLUSTER = 0x0FFFFFF7;
-
-void PrintDate(const Date &date) {
-  std::cout << (int)date.day << "/" << (int)date.month << "/"
-            << (int)date.year + 1980;
-}
-
-void PrintDatetime(const Datetime &datetime) {
-  std::cout << (int)datetime.day << "/" << (int)datetime.month << "/"
-            << (int)datetime.year + 1980 << " " << std::fixed
-            << std::setfill('0') << std::setw(2) << (int)datetime.hour << ":"
-            << (int)datetime.minutes << ":" << (int)datetime.seconds;
-}
+constexpr int kBadCluster = 0x0FFFFFF7;
 
 int ComposeCluster(unsigned short clusterHigh, unsigned short clusterLow) {
   return (clusterHigh << 16) | clusterLow;
 }
 
-void PrintDirectoryEntryInfo(DirectoryEntry entry) {
-  std::cout << "Filename: " << entry.filename << std::endl;
+void DebugPrintDirectoryEntryInfo(DirectoryEntry entry) {
+  spdlog::debug("Filename: {}", entry.filename);
   if (!entry.longFilename.empty()) {
-    std::cout << "Long filename: " << entry.longFilename << std::endl;
+    spdlog::debug("Long filename: {}", entry.longFilename);
   }
 
-  std::cout << "Type: " << (entry.IsDirectory() ? "Directory" : "File")
-            << std::endl;
-  std::cout << "Attributes: " << (entry.IsReadOnly() ? 'R' : '-')
-            << (entry.IsHidden() ? 'H' : '-') << (entry.IsSystem() ? 'S' : '-')
-            << (entry.IsVolumeIdEntry() ? 'V' : '-')
-            << (entry.IsDirectory() ? 'D' : '-')
-            << (entry.IsArchive() ? 'A' : '-') << std::endl;
-  std::cout << "Creation datetime: ";
-  PrintDatetime(entry.CreationDatetime());
-  std::cout << std::endl << "Last modification datetime: ";
-  PrintDatetime(entry.LastModificationDatetime());
-  std::cout << std::endl << "Last accessed date: ";
-  PrintDate(entry.LastAccessedDate());
+  spdlog::debug("Type: {}", entry.IsDirectory() ? "Directory" : "File");
+  spdlog::debug("Attributes: {}{}{}{}{}{}", entry.IsReadOnly() ? 'R' : '-',
+                entry.IsHidden() ? 'H' : '-', entry.IsSystem() ? 'S' : '-',
+                entry.IsVolumeIdEntry() ? 'V' : '-',
+                entry.IsDirectory() ? 'D' : '-', entry.IsArchive() ? 'A' : '-');
+  spdlog::debug("Creation datetime: {}", entry.CreationDatetime());
+  spdlog::debug("Last modification datetime: {}",
+                entry.LastModificationDatetime());
+  spdlog::debug("Last accessed date: {}", entry.LastAccessedDate());
 
-  std::cout << std::endl
-            << "First cluster: 0x" << std::hex << std::uppercase
-            << ComposeCluster(entry.firstClusterHigh, entry.firstClusterLow);
-  std::cout << std::endl
-            << "Size (in bytes): " << std::dec << std::nouppercase << entry.size
-            << std::endl;
+  spdlog::debug("First cluster: 0x{:X}",
+                ComposeCluster(entry.firstClusterHigh, entry.firstClusterLow));
+  spdlog::debug("Size (in bytes): {}", entry.size);
 }
 
-void PrintTitle(const std::string &title) {
-  int padding = (60 - title.size() - 2) / 2;
-  for (int i = 0; i < padding; i++) {
-    std::cout << "=";
-  }
-  std::cout << " " << title << " ";
-  for (int i = 0; i < padding; i++) {
-    std::cout << "=";
-  }
-  std::cout << std::endl;
+void DebugPrintTitle(const std::string &title) {
+  int padding = (30 - title.size() - 2) / 2;
+  std::string border(padding, '=');
+  spdlog::debug("{} {} {}", border, title, border);
 }
 
-void PrintBPBInfo(const BiosParameterBlock &bpb) {
-  PrintTitle("BPB");
+void DebugPrintBPBInfo(const BiosParameterBlock &bpb) {
+  DebugPrintTitle("BPB");
   if (bpb.jmp[0] == 0xEB && bpb.jmp[2] == 0x90) {
-    std::cout << "Jump instruction code found: " << std::hex << std::uppercase
-              << (int)bpb.jmp[0] << ' ' << (int)bpb.jmp[1] << ' '
-              << (int)bpb.jmp[2] << std::endl;
+    spdlog::debug("Jump instruction code: 0x{:X} 0x{:X} 0x{:X}", bpb.jmp[0],
+                  bpb.jmp[1], bpb.jmp[2]);
   }
 
-  std::cout << std::dec << std::nouppercase;
-
-  std::cout << "OEM Identifier: " << bpb.oem << std::endl;
-  std::cout << "Bytes per sector: " << bpb.bytesPerSector << std::endl;
-  std::cout << "Sectors per cluster: " << (int)bpb.sectorsPerCluster
-            << std::endl;
-  std::cout << "Reserved sectors: " << bpb.reservedSectors << std::endl;
-  std::cout << "rootDirectoryEntries16: " << bpb.rootDirectoryEntries16
-            << std::endl;
-  std::cout << "Number of FATs: " << (int)bpb.countFats << std::endl;
-  std::cout << "Number of total sectors: " << bpb.sectorsCount32 << std::endl;
-  std::cout << "Media descriptor type: 0X" << std::hex << std::uppercase
-            << (int)bpb.mediaDescriptorType << std::dec << std::nouppercase
-            << std::endl;
-  std::cout << "Number of sectors per track: " << bpb.sectorsPerTrack
-            << std::endl;
-  std::cout << "Number of heads on the disk: " << bpb.headsCount << std::endl;
-  std::cout << "Number of hidden sectors: " << bpb.hiddenSectors << std::endl;
+  spdlog::debug("OEM Identifier: {}", bpb.oem);
+  spdlog::debug("Bytes per sector: {}", bpb.bytesPerSector);
+  spdlog::debug("Sectors per cluster: {}", bpb.sectorsPerCluster);
+  spdlog::debug("Reserved sectors: {}", bpb.reservedSectors);
+  spdlog::debug("rootDirectoryEntries16: {}", bpb.rootDirectoryEntries16);
+  spdlog::debug("Number of FATs: {}", bpb.countFats);
+  spdlog::debug("Number of total sectors: {}", bpb.sectorsCount32);
+  spdlog::debug("Media descriptor type: 0X{}", bpb.mediaDescriptorType);
+  spdlog::debug("Number of sectors per track: {}", bpb.sectorsPerTrack);
+  spdlog::debug("Number of heads on the disk: {}", bpb.headsCount);
+  spdlog::debug("Number of hidden sectors: {}", bpb.hiddenSectors);
 }
 
-void PrintEBPBInfo(const ExtendedBiosParameterBlock &ebpb) {
-  PrintTitle("EBPB");
-  std::cout << "Sectors per FAT: " << ebpb.sectorsPerFAT << std::endl;
-  std::cout << std::hex << std::uppercase << "Flags: " << ebpb.flags
-            << std::endl;
-  std::cout << std::dec << std::nouppercase
-            << "FAT version number: " << ((ebpb.FATVersion & 0xff00) >> 8)
-            << '.' << (ebpb.FATVersion & 0xff) << std::endl;
-  std::cout << "Root directory cluster: " << ebpb.rootDirCluster << std::endl;
-  std::cout << "FSInfo sector: " << ebpb.FSInfoSector << std::endl;
-  std::cout << "Backup Boot Sector: " << ebpb.backupBootSector << std::endl;
-  std::cout << "Drive type: "
-            << (ebpb.driveNumber == 0
-                    ? "Floppy"
-                    : (ebpb.driveNumber == 0x80 ? "Hard Disk" : "Other"))
-            << std::hex << " (0x" << ebpb.driveNumber << ")" << std::endl;
+void DebugPrintEBPBInfo(const ExtendedBiosParameterBlock &ebpb) {
+  DebugPrintTitle("EBPB");
+  spdlog::debug("Sectors per FAT: {}", ebpb.sectorsPerFAT);
+  spdlog::debug("Flags: {:X}", ebpb.flags);
+  spdlog::debug("FAT version number: {:X}.{:X}",
+                (ebpb.FATVersion & 0xff00) >> 8, ebpb.FATVersion & 0xff);
+  spdlog::debug("Root directory cluster: {:X}", ebpb.rootDirCluster);
+  spdlog::debug("FSInfo sector: {:X}", ebpb.FSInfoSector);
+  spdlog::debug("Backup Boot Sector: {:X}", ebpb.backupBootSector);
+  spdlog::debug("Drive type: {} (0x{:X})",
+                (ebpb.driveNumber == 0
+                     ? "Floppy"
+                     : (ebpb.driveNumber == 0x80 ? "Hard Disk" : "Other")),
+                ebpb.driveNumber);
   if (ebpb.signature == 0x28 || ebpb.signature == 0x29) {
-    std::cout << "EBPB signature found: 0x" << ebpb.signature << std::endl;
+    spdlog::debug("EBPB signature found: 0x{:X}", ebpb.signature);
   }
-  std::cout << "Volume ID: " << ebpb.volumeId << std::endl;
-  std::cout << "Volume Label: " << ebpb.volumeLabel << std::endl;
-  if (std::string(ebpb.systemType) == "FAT32   ") {
-    std::cout << "System identifier correct: " << ebpb.systemType << std::endl;
-  }
+  spdlog::debug("Volume ID: {}", ebpb.volumeId);
+  spdlog::debug("Volume Label: {}", ebpb.volumeLabel);
+  spdlog::debug("System identifier: {}", ebpb.systemType);
 }
 
-void PrintFSInfo(const FileSystemInformation &fsInfo) {
-  PrintTitle("FSInfo");
+void DebugPrintFSInfo(const FileSystemInformation &fsInfo) {
+  DebugPrintTitle("FSInfo");
   constexpr u_int32_t kLeadSignature = 0x41615252;
   constexpr u_int32_t kStructSignature = 0x61417272;
   constexpr u_int32_t kTrailSignature = 0xAA550000;
-  std::cout << std::dec << "Top signature "
-            << (fsInfo.leadSignature == kLeadSignature ? "matches!"
-                                                       : "doesn't match!")
-            << std::endl;
-  std::cout << "Middle signature "
-            << (fsInfo.structSignature == kStructSignature ? "matches!"
-                                                           : "doesn't match!")
-            << std::endl;
-  std::cout << "Last known free cluster count: ";
-  if (fsInfo.freeClusters == 0xFFFFFFFF) {
-    std::cout << "N/A" << std::endl;
-  } else {
-    std::cout << fsInfo.freeClusters << std::endl;
-  }
-  std::cout << "Start looking for available clusters at cluster number: ";
-  if (fsInfo.availableClusterStart == 0xFFFFFFFF) {
-    std::cout << "N/A" << std::endl;
-  } else {
-    std::cout << fsInfo.availableClusterStart << std::endl;
-  }
-  std::cout << "Bottom signature "
-            << (fsInfo.trailSignature == kTrailSignature ? "matches!"
-                                                         : "doesn't match!")
-            << std::endl;
+  spdlog::debug("Top signature {}", fsInfo.leadSignature == kLeadSignature
+                                        ? "matches!"
+                                        : "doesn't match!");
+  spdlog::debug("Middle signature {}",
+                fsInfo.structSignature == kStructSignature ? "matches!"
+                                                           : "doesn't match!");
+  spdlog::debug("Last known free cluster count: 0x{:X}", fsInfo.freeClusters);
+  spdlog::debug("Available clusters start: 0x{:X}",
+                fsInfo.availableClusterStart);
+  spdlog::debug("Bottom signature {}",
+                (fsInfo.trailSignature == kTrailSignature ? "matches!"
+                                                          : "doesn't match!"));
 }
 
 inline void rtrim(std::string &s) {
@@ -234,51 +184,60 @@ int GetClusterAddress(const BiosParameterBlock &bpb,
          bpb.bytesPerSector;
 }
 
-void ReadFile(const BiosParameterBlock &bpb,
-              const ExtendedBiosParameterBlock &ebpb,
-              const DirectoryEntry &entry, std::ifstream &in,
-              std::ofstream *out_stream) {
-  PrintTitle("File Info");
-  PrintDirectoryEntryInfo(entry);
+// return size of read data.
+size_t ReadFile(const BiosParameterBlock &bpb,
+                const ExtendedBiosParameterBlock &ebpb,
+                const DirectoryEntry &entry, std::ifstream &in,
+                const size_t offset, const size_t size,
+                std::ostream &out_stream) {
+  if (offset > entry.size) {
+    return 0;
+  }
+
+  DebugPrintDirectoryEntryInfo(entry);
   const int first_cluster =
       ComposeCluster(entry.firstClusterHigh, entry.firstClusterLow);
-  const u_int32_t bytes_per_cluster =
-      bpb.sectorsPerCluster * bpb.bytesPerSector;
+  const size_t bytes_per_cluster = bpb.sectorsPerCluster * bpb.bytesPerSector;
 
   int current_cluster = first_cluster;
-  u_int32_t bytes_to_read = entry.size;
+  size_t bytes_to_read = std::min(size, entry.size - offset);
+  size_t size_read = 0;
+  size_t pos = 0;
 
-  PrintTitle("File Content");
   while (true) {
     in.seekg(GetClusterAddress(bpb, ebpb, current_cluster));
-    const int size = std::min(bytes_to_read, bytes_per_cluster);
-    if (out_stream != nullptr) {
-      std::vector<char> buffer(size);
-      in.read(buffer.data(), size);
-      out_stream->write(buffer.data(), size);
-    } else {
-      std::string data(size + 1, '\0');
-      in.read(data.data(), size);
-      std::cout << data;
+    if (pos + bytes_per_cluster > offset) {
+      if (pos < offset) {
+        // on first reading, the head address of the cluster may be
+        // smaller than offset.
+        in.ignore(offset - pos);
+      }
+      const size_t size_to_read = std::min(bytes_to_read, bytes_per_cluster);
+      std::vector<char> buffer(size_to_read);
+      in.read(buffer.data(), size_to_read);
+      out_stream.write(buffer.data(), size_to_read);
+      bytes_to_read -= size_to_read;
+      size_read += size_to_read;
+      // assert(in.is_open());
     }
-    bytes_to_read -= size;
-    // assert(in.is_open());
+    pos += bytes_per_cluster;
 
     if (bytes_to_read == 0) {
-      std::cout << std::endl << "[EOF] read all data" << std::endl;
+      spdlog::debug("[EOF] read all data");
       break;
     }
 
     int next_cluster = GetNextCluster(in, bpb, current_cluster);
-    if (next_cluster >= EOCC) {
-      std::cout << std::endl << "[EOF] end of cluster" << std::endl;
+    if (next_cluster >= kEocc) {
+      spdlog::debug("[EOF] end of cluster");
       break;
-    } else if (next_cluster == BAD_CLUSTER) {
-      std::cerr << "[EOF] bad cluster - stopping" << std::endl;
+    } else if (next_cluster == kBadCluster) {
+      spdlog::warn("[EOF] bad cluster - stopping");
       break;
     }
     current_cluster = next_cluster;
   }
+  return size_read;
 }
 
 void ReadLFNPart(std::ifstream &in, std::string &buffer, int length) {
@@ -452,63 +411,6 @@ bool IsEbpbValid(const BiosParameterBlock &bpb,
   return totalClusters >= 65525;
 }
 
-// std::string ComputeSizeString(int size) {
-//   int power =
-//       std::floor(std::log10(static_cast<double>(size)) / std::log10(1024));
-//   float scaled_size = size / std::pow(1024, power);
-//   std::ostringstream stream;
-//   stream.precision(2);
-//   stream << std::fixed << scaled_size;
-//   std::string result = std::move(stream).str();
-
-//   switch (power) {
-//     case 1:
-//       result.push_back('K');
-//       break;
-//     case 2:
-//       result.push_back('M');
-//       break;
-//     case 3:
-//       result.push_back('G');
-//       break;
-//     case 4:
-//       result.push_back('T');
-//       break;
-//   }
-//   // If the power is 0 (the size is less than a kibibyte), we print the size
-//   in
-//   // bytes ("B")
-//   if (power > 0) {
-//     result.push_back('i');
-//   }
-//   result.push_back('B');
-//   return result;
-// }
-
-// void PrintDirectoryEntry(DirectoryEntry entry) {
-//   bool isDirectory = (entry.attributes & 0x10) != 0;
-//   std::cout << (isDirectory ? 'D' : 'F') << '\t';
-//   if (!entry.longFilename.empty()) {
-//     std::cout << entry.longFilename << '\t';
-//   } else {
-//     std::cout << entry.filename << '\t';
-//   }
-//   Time creationTime = ConvertToTime(entry.creationTime);
-//   Date creationDate = ConvertToDate(entry.creationDate);
-
-//   std::cout << std::fixed << std::setfill('0') << std::setw(2)
-//             << (int)creationTime.hour << ":" << std::setw(2)
-//             << (int)creationTime.minutes << ":" << std::setw(2)
-//             << (int)creationTime.seconds << '\t';
-//   std::cout << std::setw(2) << (int)creationDate.day << "/" << std::setw(2)
-//             << (int)creationDate.month << "/" << std::setw(2)
-//             << (int)creationDate.year + 1980;
-//   if (!isDirectory) {
-//     std::cout << '\t' << ComputeSizeString(entry.size);
-//   }
-//   std::cout << std::endl;
-// }
-
 bool GetSubDirectories(std::vector<DirectoryEntry> &current_dir_entries,
                        const absl::string_view &sub_dir_name, std::ifstream &in,
                        const BiosParameterBlock &bpb,
@@ -518,8 +420,7 @@ bool GetSubDirectories(std::vector<DirectoryEntry> &current_dir_entries,
       continue;
     }
 
-    const bool isDirectory = (entry.attributes & 0x10) != 0;
-    if (!isDirectory) {
+    if (!entry.IsDirectory()) {
       return false;
     }
 
@@ -533,114 +434,180 @@ bool GetSubDirectories(std::vector<DirectoryEntry> &current_dir_entries,
   return false;
 }
 
+template <typename CharT, typename TraitsT = std::char_traits<CharT> >
+class CharArrayBuffer : public std::basic_streambuf<CharT, TraitsT> {
+ public:
+  CharArrayBuffer(CharT *base, size_t size) { this->setp(base, base + size); }
+};
+
 }  // namespace
 
-FileSystem::FileSystem(const std::string &image_file) {
-  in_ = std::ifstream(image_file, std::ios::binary);
-  if (!in_.is_open()) {
-    std::cerr << "failed to Read file!" << std::endl;
+FileSystem::FileSystem(const std::string &image_file)
+    : image_file_(image_file) {
+  Initialize(image_file);
+}
+
+bool FileSystem::Refresh() {
+  if (in_) {
+    in_.close();
+  }
+
+  spdlog::debug("refreshing");
+
+  valid_ = false;
+  current_path_.clear();
+  bpb_ = BiosParameterBlock();
+  ebpb_ = ExtendedBiosParameterBlock();
+  fs_info_ = FileSystemInformation();
+  root_dir_entries_.clear();
+  current_dir_entries_.clear();
+
+  Initialize(image_file_);
+
+  if (!valid_) {
+    spdlog::debug("not valid after refreshing!");
+  }
+
+  return valid_;
+}
+
+void FileSystem::Initialize(const std::string &image_file) {
+  in_.open(image_file, std::ios::binary);
+  if (!in_) {
+    spdlog::error("failed to read fat32 image file {}", image_file);
     valid_ = false;
     return;
   }
 
   ReadBPB(&bpb_, in_);
-  PrintBPBInfo(bpb_);
+  DebugPrintBPBInfo(bpb_);
   if (bpb_.jmp[0] == 0xEB && bpb_.jmp[2] == 0x90) {
-    std::cout << "FAT image detected (by JMP signature)" << std::endl;
+    spdlog::debug("FAT image detected (by JMP signature)");
   } else {
-    std::cerr << "image does not have the correct JMP signature." << std::endl;
-    std::cerr << "probably not a valid FAT image." << std::endl;
+    spdlog::error("image does not have the correct JMP signature.");
+    spdlog::error("probably not a valid FAT image.");
     valid_ = false;
     return;
   }
 
   if (!IsBpbValid(bpb_)) {
-    std::cerr << "invalid BPB" << std::endl;
+    spdlog::error("invalid BPB");
     valid_ = false;
     return;
   }
 
   ReadEBPB(&ebpb_, in_);
-  PrintEBPBInfo(ebpb_);
+  DebugPrintEBPBInfo(ebpb_);
   if (!IsEbpbValid(bpb_, ebpb_)) {
-    std::cerr << "invalid EBPB" << std::endl;
+    spdlog::error("invalid EBPB");
     valid_ = false;
     return;
   }
 
   ReadFSInfo(bpb_, ebpb_, &fs_info_, in_);
-  PrintFSInfo(fs_info_);
+  DebugPrintFSInfo(fs_info_);
 
   ReadDirectory(in_, bpb_, ebpb_, ebpb_.rootDirCluster, root_dir_entries_);
-
-  // PrintTitle("Root Directory");
-  // for (const DirectoryEntry &entry : root_dir_entries_) {
-  //   // bool hasLongFilename = !entry.longFilename.empty();
-  //   // std::string entry_filename;
-  //   // if (hasLongFilename) {
-  //   //   entry_filename = entry.longFilename;
-  //   // } else {
-  //   //   entry_filename = std::string((char *)(entry.filename));
-  //   // }
-  //   // rtrim(entry_filename);
-  //   // PrintDirectoryEntryInfo(entry);
-  //   std::cout << entry.name << std::endl;
-  // }
+  current_dir_entries_ = root_dir_entries_;
+  current_path_ = "";
 
   valid_ = true;
-  PrintTitle("FileSystem Initialized");
 }
 
-std::string FileSystem::ReadFile(absl::string_view path,
-                                 const std::string &export_path) {
-  const char kPathDelimeter = '/';
-  std::size_t pos = path.find_last_of(kPathDelimeter);
-  absl::string_view filename;
-  if (pos != absl::string_view::npos) {
-    absl::string_view parent_dir = path.substr(0, pos);
-    filename = path.substr(pos + 1);
-    if (!ChangeDirectory(parent_dir)) {
-      std::cerr << "failed to change to parent dir" << std::endl;
-      return "";
-    }
-  } else {
-    current_dir_entries_ = root_dir_entries_;
-    filename = path;
-  }
-  auto dir_entry =
-      std::find_if(current_dir_entries_.cbegin(), current_dir_entries_.cend(),
-                   [&filename](auto entry) { return entry.name == filename; });
-  if (dir_entry == current_dir_entries_.cend() || dir_entry->IsDirectory()) {
-    std::cerr << "file not exists or is a directory" << std::endl;
-    return "";
-  }
-  if (export_path.empty()) {
-    fat32::ReadFile(bpb_, ebpb_, *dir_entry, in_, nullptr);
-  } else {
-    std::ofstream os(export_path, std::ios::binary);
-    fat32::ReadFile(bpb_, ebpb_, *dir_entry, in_, &os);
-  }
-  return "";
+bool FileSystem::ExportFile(absl::string_view path,
+                            const std::string &export_path) {
+  std::ofstream ofs(export_path, std::ios::binary);
+  return ReadFile(path, ofs);
 };
 
-bool FileSystem::ChangeDirectory(absl::string_view path) {
+bool FileSystem::ReadFile(absl::string_view path, std::string *content) {
+  const DirectoryEntry *dir_entry = FindDirectoryEntry(path);
+  if (dir_entry == nullptr || dir_entry->IsDirectory()) {
+    spdlog::debug("file not exists or is a directory: {}", path);
+    return false;
+  }
+
+  content->resize(dir_entry->size);
+  CharArrayBuffer buf(content->data(), dir_entry->size);
+  std::ostream os(&buf);
+  return ReadFile(*dir_entry, os);
+}
+
+bool FileSystem::ReadFile(absl::string_view path, std::ostream &os) {
+  const DirectoryEntry *dir_entry = FindDirectoryEntry(path);
+  if (dir_entry == nullptr || dir_entry->IsDirectory()) {
+    spdlog::debug("file not exists or is a directory: {}", path);
+    return false;
+  }
+
+  return ReadFile(*dir_entry, os);
+}
+
+size_t FileSystem::ReadFile(const DirectoryEntry &entry, size_t offset,
+                            size_t size, char *out) {
+  CharArrayBuffer buf(out, size);
+  std::ostream os(&buf);
+  return fat32::ReadFile(bpb_, ebpb_, entry, in_, offset, size, os);
+}
+
+bool FileSystem::ReadFile(const DirectoryEntry &entry, std::ostream &os) {
+  return fat32::ReadFile(bpb_, ebpb_, entry, in_, 0, entry.size, os) ==
+         entry.size;
+}
+
+bool FileSystem::ChangeDirectory(absl::string_view path, bool parent) {
+  const char kPathDelimeter = '/';
+  if (parent) {
+    const auto &pos = path.find_last_of(kPathDelimeter);
+    if (pos != std::string::npos) {
+      path = path.substr(0, pos);
+    } else {
+      path = "";
+    }
+  }
+
+  if (current_path_ == path) {
+    return true;
+  }
+
+  spdlog::debug("change diretory to {}{}", path, parent ? "/.." : "");
+
   if (path == "") {
     // root directory
+    current_path_ = "";
     current_dir_entries_ = root_dir_entries_;
     return true;
   }
 
-  std::cout << "change diretory to " << path << std::endl;
-  const char kPathDelimeter = '/';
   std::vector<absl::string_view> path_segments =
       absl::StrSplit(path, kPathDelimeter);
   current_dir_entries_ = root_dir_entries_;
   for (const std::string_view &dir_name : path_segments) {
     if (!GetSubDirectories(current_dir_entries_, dir_name, in_, bpb_, ebpb_)) {
+      spdlog::debug("not dir {} under {}", dir_name, current_path_);
+      current_path_ = "";
+      current_dir_entries_ = root_dir_entries_;
       return false;
     }
   }
+  current_path_ = path;
   return true;
+}
+
+const DirectoryEntry *FileSystem::FindDirectoryEntry(
+    absl::string_view path) const {
+  const char kPathDelimeter = '/';
+  std::size_t pos = path.find_last_of(kPathDelimeter);
+  absl::string_view filename =
+      pos != absl::string_view::npos ? path.substr(pos + 1) : path;
+  const auto &entries = CurrentDirectoryEntries();
+  auto it =
+      std::find_if(entries.cbegin(), entries.cend(),
+                   [&filename](auto entry) { return entry.name == filename; });
+  if (it == entries.end()) {
+    return nullptr;
+  }
+  return &(*it);
 }
 
 }  // namespace fat32

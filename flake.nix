@@ -33,19 +33,16 @@
         zero2w = nixosConfigurations.zero2w.config.system.build.sdImage;
       };
 
+      packages.x86_64-linux.fat32 =
+        nixpkgs.legacyPackages.x86_64-linux.callPackage ./fat32 { };
+
       devShell.x86_64-linux =
         let
           pkgs = nixpkgs.legacyPackages.x86_64-linux;
         in
         pkgs.mkShell {
+          inputsFrom = [ packages.x86_64-linux.fat32 ];
           packages = with pkgs; [
-            # C++
-            cmake
-            llvmPackages_12.clang
-            clang-tools
-            abseil-cpp
-            argparse
-
             # Python
             nodePackages.pyright
             (python3.withPackages

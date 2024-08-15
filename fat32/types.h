@@ -2,6 +2,8 @@
 
 #include <string>
 
+#include "spdlog/fmt/ostr.h"
+
 namespace fat32 {
 
 struct Time {
@@ -16,13 +18,21 @@ struct Date {
   u_int8_t day;
 };
 
-struct Datetime {
-  u_int8_t year;
-  u_int8_t month;
-  u_int8_t day;
+struct Datetime : Date {
   u_int8_t hour;
   u_int8_t minutes;
   u_int8_t seconds;
+
+  time_t ToTimestamp() const {
+    struct tm tm;
+    tm.tm_year = static_cast<int>(year) + 1980 - 1900;
+    tm.tm_mon = month;
+    tm.tm_mday = day;
+    tm.tm_hour = hour;
+    tm.tm_min = minutes;
+    tm.tm_sec = seconds;
+    return timegm(&tm);
+  }
 };
 
 namespace {
@@ -139,3 +149,21 @@ struct LongFileNameDirectoryEntry {
 };
 
 }  // namespace fat32
+
+template <>
+struct fmt::formatter<fat32::Date> : fmt::formatter<std::string> {
+  auto format(fat32::Date dt, format_context &ctx) const
+      -> decltype(ctx.out()) {
+    return format_to(ctx.out(), "{}/{}/{}", dt.year + 1980, dt.month, dt.day);
+  }
+};
+
+template <>
+struct fmt::formatter<fat32::Datetime> : fmt::formatter<std::string> {
+  auto format(fat32::Datetime dt, format_context &ctx) const
+      -> decltype(ctx.out()) {
+    return format_to(ctx.out(), "{} {:02}:{:02}:{:02}",
+                     static_cast<fat32::Date>(dt), dt.hour, dt.minutes,
+                     dt.seconds);
+  }
+};

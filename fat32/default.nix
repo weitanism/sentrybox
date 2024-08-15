@@ -5,6 +5,9 @@
 , clang-tools
 , argparse
 , abseil-cpp
+, fuse3
+, spdlog
+, pkg-config
 }:
 
 llvmPackages_12.stdenv.mkDerivation rec {
@@ -17,10 +20,13 @@ llvmPackages_12.stdenv.mkDerivation rec {
     cmake
     clang
     clang-tools
+    pkg-config
   ];
   buildInputs = [
     abseil-cpp
     argparse
+    fuse3
+    spdlog
   ];
 
   cmakeFlags = [
