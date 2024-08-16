@@ -6,26 +6,46 @@
 }:
 
 {
-  systemd.services.mass-storage-gadget-service =
+  systemd.services.mass-storage-gadget =
     let
-      sizeStr = builtins.toString sizeGb;
-      gadget = "${pkgs.mass-storage-gadget}/bin/mass-storage-gadget";
+      size = builtins.toString sizeGb;
+      gadget-command = "${pkgs.mass-storage-gadget}/bin/mass-storage-gadget -f ${path} -s ${size} -m ${mountPath}";
     in
     {
       wantedBy = [ "multi-user.target" ];
       after = [ "local-fs.target" ];
-      description = "mass storage gadget service.";
+      description = "Mass storage gadget service.";
       serviceConfig = {
+        Type = "exec";
         User = "root";
         Group = "root";
-        ExecStart = "${gadget} -f ${path} -s ${sizeStr} -m ${mountPath} host-mode";
-        ExecStop = "${gadget} -f ${path} -s ${sizeStr} -m ${mountPath} disable";
-        RemainAfterExit = "yes";
+        ExecStart = "${gadget-command} host-mode";
+        ExecStopPost = "${gadget-command} disable";
+        Restart = "on-failure";
+        RestartSec = 2;
       };
       path = with pkgs; [
         util-linux
         kmod
         dosfstools
+        fat32
+        simple-http-server
       ];
+    };
+
+  systemd.services.mass-storage-gadget-http =
+    {
+      wantedBy = [ "multi-user.target" ];
+      after = [ "mass-storage-gadget.service" ];
+      requires = [ "mass-storage-gadget.service" ];
+      description = "Mass storage gadget http service.";
+      serviceConfig = {
+        Type = "exec";
+        User = "root";
+        Group = "root";
+        ExecStart = "${pkgs.simple-http-server}/bin/simple-http-server ${mountPath}";
+        Restart = "on-failure";
+        RestartSec = 2;
+      };
     };
 }

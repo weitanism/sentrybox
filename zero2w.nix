@@ -109,5 +109,11 @@
     python3
     mass-storage-gadget
     fat32
+    simple-http-server
   ];
+
+  networking.firewall = {
+    enable = true;
+    allowedTCPPorts = [ 8000 ];
+  };
 }

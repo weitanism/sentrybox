@@ -33,8 +33,8 @@
         zero2w = nixosConfigurations.zero2w.config.system.build.sdImage;
       };
 
-      packages.x86_64-linux.fat32 =
-        nixpkgs.legacyPackages.x86_64-linux.callPackage ./fat32 { };
+      packages.x86_64-linux =
+        nixpkgs.legacyPackages.x86_64-linux.callPackage ./pkgs { };
 
       devShell.x86_64-linux =
         let

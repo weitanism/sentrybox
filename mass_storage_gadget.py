@@ -3,6 +3,8 @@ from argparse import ArgumentParser
 from pathlib import Path
 from typing import List
 
+FAT32_TOOL_PATH = "fat32"
+
 
 class GadgetException(Exception):
     pass
@@ -31,16 +33,16 @@ def initialize_backing_file(path: Path, size_gb: int):
     # Initialize the directory structure. See
     # https://www.tesla.com/ownersmanual/model3/en_us/GUID-F311BBCA-2532-4D04-B88C-DBA784ADEE21.html
     mount_path = Path("/root/mass_storage_mnt")
-    mount(path, mount_path, readwrite=True)
+    mount(path, mount_path, readwrite=True, fuse=False)
     try:
         for directory in ("TeslaCam", "TeslaTrackMode"):
             run_shell_command(["mkdir", "-p", str(mount_path / directory)])
     except Exception:
-        unmount(mount_path)
+        unmount(mount_path, fuse=False)
         run_shell_command(["rm", "-f", str(path)])
         raise
     else:
-        unmount(mount_path)
+        unmount(mount_path, fuse=False)
 
 
 def enable_gadget(backing_file: Path, size_gb: int):
@@ -72,39 +74,62 @@ def is_mounted(mount_path: Path):
     )
 
 
-def mount(path: Path, mount_path: Path, readwrite: bool):
+def mount(path: Path, mount_path: Path, readwrite: bool, fuse: bool = True):
     if not mount_path.exists():
         mount_path.mkdir(parents=True, exist_ok=True)
 
     if is_mounted(mount_path):
         unmount(mount_path)
 
-    run_shell_command(
-        [
-            "mount",
-            "-t",
-            "vfat",
-            str(path),
-            str(mount_path),
-            "-o",
-            "rw,noatime,nodiratime" if readwrite else "ro",
-        ]
-    )
+    if fuse:
+        run_shell_command(
+            [
+                FAT32_TOOL_PATH,
+                "--file",
+                str(path),
+                "--mount-path",
+                str(mount_path),
+                "mount",
+            ]
+        )
+    else:
+        run_shell_command(
+            [
+                "mount",
+                "-t",
+                "vfat",
+                str(path),
+                str(mount_path),
+                "-o",
+                "rw,noatime,nodiratime" if readwrite else "ro",
+            ]
+        )
 
 
-def unmount(mount_path: Path):
+def unmount(mount_path: Path, fuse: bool = True):
     if not is_mounted(mount_path):
         return
 
-    run_shell_command(
-        [
-            "umount",
-            str(mount_path),
-        ]
-    )
+    if fuse:
+        run_shell_command(
+            [
+                "fusermount",
+                "-u",
+                str(mount_path),
+            ]
+        )
+    else:
+        run_shell_command(
+            [
+                "umount",
+                str(mount_path),
+            ]
+        )
 
 
 def main():
+    global FAT32_TOOL_PATH
+
     parser = ArgumentParser("mass-storage-gadget")
     parser.add_argument(
         "action", choices=["host-mode", "client-mode", "disable", "remount"]
@@ -113,9 +138,13 @@ def main():
     parser.add_argument("-s", "--size-gb", default=64, type=int)
     parser.add_argument("-m", "--mount-path", default=None, type=str)
     parser.add_argument(
+        "-t", "--mount-tool-path", default=FAT32_TOOL_PATH, type=str
+    )
+    parser.add_argument(
         "-w", "--mount-read-write", default=False, action="store_true"
     )
     args = parser.parse_args()
+    FAT32_TOOL_PATH = args.mount_tool_path
     backing_file = Path(args.backing_file)
     mount_path = Path(args.mount_path) if args.mount_path else None
     if args.action == "host-mode":
