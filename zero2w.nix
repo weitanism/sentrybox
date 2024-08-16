@@ -8,6 +8,7 @@
 {
   imports = [
     ./sd-image.nix
+    ./tailscale.nix
 
     (import ./mass-storage-gadget-service.nix {
       inherit pkgs;
