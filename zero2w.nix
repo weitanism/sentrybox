@@ -5,13 +5,17 @@
 , ...
 }:
 
+let
+  webUiPort = 8000;
+  staticFileServerPort = 8001;
+in
 {
   imports = [
     ./sd-image.nix
     ./tailscale.nix
 
     (import ./mass-storage-gadget-service.nix {
-      inherit pkgs;
+      inherit pkgs webUiPort staticFileServerPort;
       sizeGb = 64;
       path = "/mass-storage.bin";
       mountPath = "/mnt/mass-storage";
@@ -111,10 +115,14 @@
     mass-storage-gadget
     fat32
     simple-http-server
+    sentrybox-ui
   ];
 
   networking.firewall = {
     enable = true;
-    allowedTCPPorts = [ 8000 ];
+    allowedTCPPorts = [
+      webUiPort
+      staticFileServerPort
+    ];
   };
 }
