@@ -16,7 +16,7 @@ in
 
     (import ./mass-storage-gadget-service.nix {
       inherit pkgs webUiPort staticFileServerPort;
-      sizeGb = 64;
+      sizeGb = 100;
       path = "/mass-storage.bin";
       mountPath = "/mnt/mass-storage";
     })
