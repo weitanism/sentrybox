@@ -1,7 +1,7 @@
 import { readdir, readFile } from 'fs';
 import { getMp4Info } from './video-info';
 
-const kTeslaCamRootDir = '/mnt/mass-storage';
+const kTeslaCamRootDir = '/mnt/mass-storage/TeslaCam';
 const kClipFileRegex = /(\d\d\d\d-\d\d-\d\d_\d\d-\d\d-\d\d)-([_a-z]+).mp4/;
 const kDatetimeRegex = /(\d\d\d\d)-(\d\d)-(\d\d)_(\d\d)-(\d\d)-(\d\d)/;
 

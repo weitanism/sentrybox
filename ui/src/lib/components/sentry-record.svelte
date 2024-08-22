@@ -4,7 +4,8 @@
 
   export let sentryRecord;
 
-  $: kDashcamPath = $page.url.protocol + '//' + $page.url.hostname + ':8001';
+  $: kDashcamPath =
+    $page.url.protocol + '//' + $page.url.hostname + ':8001/TeslaCam';
 
   $: console.log('sentryRecord', sentryRecord);
   $: {
