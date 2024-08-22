@@ -1,10 +1,9 @@
 <script>
-  import { page } from '$app/stores';
   import SentryRecord from '$lib/components/sentry-record.svelte';
 
-  $: sentryRecord = $page.data.records.find(
-    (r) => r.directory === $page.params.time
-  );
+  export let data;
+
+  $: sentryRecord = data.sentryRecord;
 </script>
 
 <div class="back-button">

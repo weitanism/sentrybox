@@ -116,6 +116,7 @@ in
     fat32
     simple-http-server
     sentrybox-ui
+    ffmpeg-headless
   ];
 
   networking.firewall = {

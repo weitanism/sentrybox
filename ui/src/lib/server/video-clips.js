@@ -1,5 +1,5 @@
 import { readdir, readFile } from 'fs';
-import { getMp4Info } from './video-info';
+import { getMp4Info, getMp4InfoFfmpeg } from './video-info';
 
 const kTeslaCamRootDir = '/mnt/mass-storage/TeslaCam';
 const kClipFileRegex = /(\d\d\d\d-\d\d-\d\d_\d\d-\d\d-\d\d)-([_a-z]+).mp4/;
@@ -64,7 +64,7 @@ async function listClipDirectory(clipDirRelativePath) {
     const filePath = `${clipDirRelativePath}/${filename}`;
     if (clips.length === 0 || lastTime !== time) {
       clips.push({
-        info: await getMp4Info(`${kTeslaCamRootDir}/${filePath}`),
+        info: await getMp4InfoFfmpeg(`${kTeslaCamRootDir}/${filePath}`),
         clips: {
           [type]: filePath,
         },
@@ -81,25 +81,38 @@ export async function listRecentClips() {
   return listClipDirectory('RecentClips');
 }
 
-export async function listSavedClips(savedDirName = 'SavedClips') {
+export async function getSentryRecord(
+  directory,
+  savedDirName = 'SentryClips',
+  noclips = false
+) {
+  return {
+    directory,
+    clips: noclips
+      ? undefined
+      : await listClipDirectory(`${savedDirName}/${directory}`),
+    event: await readEventFile(
+      `${kTeslaCamRootDir}/${savedDirName}/${directory}/event.json`
+    ),
+    thumb: `${savedDirName}/${directory}/thumb.png`,
+  };
+}
+
+export async function listSavedClips(
+  savedDirName = 'SavedClips',
+  noclips = false
+) {
   const savedClipDirs = await listDirectory(
     `${kTeslaCamRootDir}/${savedDirName}`
   );
   savedClipDirs.sort();
-  const savedClips = [];
-  for (const dirname of savedClipDirs) {
-    savedClips.push({
-      directory: dirname,
-      clips: await listClipDirectory(`${savedDirName}/${dirname}`),
-      event: await readEventFile(
-        `${kTeslaCamRootDir}/${savedDirName}/${dirname}/event.json`
-      ),
-      thumb: `${savedDirName}/${dirname}/thumb.png`,
-    });
-  }
-  return savedClips;
+  return Promise.all(
+    savedClipDirs.map((dirname) =>
+      getSentryRecord(dirname, savedDirName, noclips)
+    )
+  );
 }
 
-export async function listSentryClips() {
-  return listSavedClips('SentryClips');
+export async function listSentryClips(noclips = false) {
+  return listSavedClips('SentryClips', noclips);
 }

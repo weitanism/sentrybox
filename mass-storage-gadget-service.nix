@@ -66,5 +66,8 @@
         Restart = "on-failure";
         RestartSec = 2;
       };
+      path = with pkgs; [
+        ffmpeg-headless
+      ];
     };
 }
