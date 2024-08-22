@@ -377,11 +377,6 @@ void ReadDirectory(std::ifstream &in, const BiosParameterBlock &bpb,
 
   while (true) {
     bool has_next_entry = ReadDirectoryEntry(in, entries);
-    // TODO: Delete this debug guard.
-    if (entries.size() > 50) {
-      spdlog::error("error while reading directory");
-      break;
-    }
     if (!has_next_entry) {
       break;
     };
